@@ -134,7 +134,5 @@ https://ds-linear-abematv.akamaized.net/preview/channel/boatrace/playlist.m3u8
 #EXTINF:-1 tvg-id="keirin-auto" tvg-logo="https://image.p-c2-x.abema-tv.com/image/channels/keirin-auto/logo.png?height=48&quality=30&version=20200413&width=128" group-title="Abema_240p" ,競輪・オートレースチャンネル
 https://ds-linear-abematv.akamaized.net/preview/channel/keirin-auto/playlist.m3u8
 
-#EXTM3U url-tvg="https://vnepg.site/epg.xml"
-#EXTM3U url-tvg="https://live.qphim.xyz/epg.xml"
 #EXTINF:-1 tvg-id="tbs" group-title="TBS" tvg-logo="https://cdn-icons-png.flaticon.com/512/0/49.png" catchup-type="append" catchup-days="5" catchup-source="?t=${start}&d=${offset}", KuboLive #Server 1
 https://nl.utako.moe/TBS/index.m3u8
