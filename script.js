@@ -63,25 +63,61 @@
   };
 
   /**
-   * 從 localStorage 取得任務清單
+   * API 端點 URL（Google Apps Script 部署的 Web App）
+   * 請將此處替換為您部署的 Web App URL，例如：https://script.google.com/macros/s/XXXXXXXX/exec
+   */
+  const API_URL = "https://script.google.com/macros/s/AKfycbwaeouIR-n4HMDYAnWH4T2tg9hh78iWVRvy7V25VZHSxlBSBXnw1fGy0WJH78neAXI/exec";
+
+  /**
+   * 任務快取。所有操作皆在此陣列處理並同步至 Google Sheets
+   */
+  let cachedTasks = [];
+
+  /**
+   * 從快取取得任務清單
    * @returns {Array}
    */
   function getTasks() {
-    const data = localStorage.getItem("tasks");
-    try {
-      return data ? JSON.parse(data) : [];
-    } catch (e) {
-      console.error("無法解析任務資料：", e);
-      return [];
-    }
+    return cachedTasks;
   }
 
   /**
-   * 儲存任務清單到 localStorage
-   * @param {Array} tasks 任務陣列
+   * 從遠端 Google Sheets 讀取任務資料，並更新快取
+   * @returns {Promise<Array>}
    */
-  function saveTasks(tasks) {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
+  async function fetchTasks() {
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      cachedTasks = Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error("讀取任務資料失敗：", err);
+      cachedTasks = [];
+    }
+    return cachedTasks;
+  }
+
+  /**
+   * 將任務資料同步到遠端 Google Sheets
+   * @param {Array} tasks 任務陣列
+   * @returns {Promise<void>}
+   */
+  async function saveTasks(tasks) {
+    cachedTasks = tasks;
+    try {
+      await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ tasks: cachedTasks })
+      });
+    } catch (err) {
+      console.error("儲存任務資料失敗：", err);
+    }
   }
 
   /**
@@ -170,7 +206,7 @@
   /**
    * 處理表單送出以新增任務
    */
-  function handleAddTask(event) {
+  async function handleAddTask(event) {
     event.preventDefault();
     const name = document.getElementById("taskName").value.trim();
     const desc = document.getElementById("taskDesc").value.trim();
@@ -182,6 +218,8 @@
       showMessage("請完整填寫必填欄位", true);
       return;
     }
+    // 先取得最新任務資料
+    await fetchTasks();
     const tasks = getTasks();
     const id = Date.now();
     tasks.push({
@@ -193,7 +231,7 @@
       devDays,
       completed: false
     });
-    saveTasks(tasks);
+    await saveTasks(tasks);
     showMessage("任務已新增！");
     // 清除輸入
     document.getElementById("taskForm").reset();
@@ -350,12 +388,14 @@
    * 標記任務為完成
    * @param {number} id 任務 id
    */
-  function markComplete(id) {
+  async function markComplete(id) {
+    // 先載入最新資料
+    await fetchTasks();
     const tasks = getTasks();
     const idx = tasks.findIndex((t) => t.id === id);
     if (idx !== -1) {
       tasks[idx].completed = true;
-      saveTasks(tasks);
+      await saveTasks(tasks);
       renderTasks();
     }
   }
@@ -365,12 +405,13 @@
    * 有時已標記完成的任務後續出現問題，需要恢復為未完成
    * @param {number} id 任務 id
    */
-  function markIncomplete(id) {
+  async function markIncomplete(id) {
+    await fetchTasks();
     const tasks = getTasks();
     const idx = tasks.findIndex((t) => t.id === id);
     if (idx !== -1) {
       tasks[idx].completed = false;
-      saveTasks(tasks);
+      await saveTasks(tasks);
       renderTasks();
     }
   }
@@ -476,7 +517,7 @@
    * 更新任務資料
    * @param {Event} event 表單提交事件
    */
-  function handleEditSubmit(event) {
+  async function handleEditSubmit(event) {
     event.preventDefault();
     const id = parseInt(document.getElementById("editId").value, 10);
     const desc = document.getElementById("editDesc").value.trim();
@@ -487,6 +528,7 @@
       alert("請完整填寫必填欄位");
       return;
     }
+    await fetchTasks();
     const tasks = getTasks();
     const idx = tasks.findIndex((t) => t.id === id);
     if (idx !== -1) {
@@ -494,8 +536,7 @@
       tasks[idx].missing = missing;
       tasks[idx].dueDate = dueDate;
       tasks[idx].devDays = devDays;
-      // 修改後，若原本完成狀態保持不變
-      saveTasks(tasks);
+      await saveTasks(tasks);
       renderTasks();
       closeEditModal();
     }
@@ -505,10 +546,11 @@
    * 刪除任務
    * @param {number} id 任務 id
    */
-  function deleteTask(id) {
+  async function deleteTask(id) {
+    await fetchTasks();
     let tasks = getTasks();
     tasks = tasks.filter((t) => t.id !== id);
-    saveTasks(tasks);
+    await saveTasks(tasks);
     renderTasks();
   }
 
@@ -533,7 +575,10 @@
    * 初始化顯示頁
    */
   function initTasksPage() {
-    renderTasks();
+    // 載入遠端資料後再渲染
+    fetchTasks().then(() => {
+      renderTasks();
+    });
     const backBtn = document.getElementById("backToInput");
     if (backBtn) {
       backBtn.addEventListener("click", () => {
