@@ -122,35 +122,35 @@ button:disabled {
 .tasks-container tr:nth-child(even) {
   background-color: #f9f9f9;
 }
-
-.action-button {
-  position: relative;
+/* 新的操作按鈕樣式 */
+.actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
-.action-button .menu {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background-color: #fff;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  z-index: 100;
-}
-
-.action-button .menu button {
-  display: block;
-  width: 100%;
-  background: none;
+.actions button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
   border: none;
-  padding: 0.5rem 1rem;
-  text-align: left;
+  border-radius: 4px;
   cursor: pointer;
+  color: #fff;
 }
 
-.action-button .menu button:hover {
-  background-color: #f1f1f1;
+/* 完成/未完成切換按鈕 */
+.actions .action-toggle {
+  background-color: #17a2b8; /* 藍綠色 */
+}
+
+/* 修改按鈕 */
+.actions .action-edit {
+  background-color: #ffc107; /* 黃色 */
+  color: #212529;
+}
+
+/* 刪除按鈕 */
+.actions .action-delete {
+  background-color: #dc3545; /* 紅色 */
 }
 
 .modal {

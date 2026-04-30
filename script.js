@@ -244,7 +244,7 @@
       "預計完成日期",
       "客戶提供倒數天數",
       "完成與否",
-      "處理"
+      "操作"
     ];
     headers.forEach((h) => {
       const th = document.createElement("th");
@@ -302,60 +302,47 @@
       td.textContent = text;
       tr.appendChild(td);
     });
-    // 處理按鈕欄
+    // 操作欄：直接顯示各個動作按鈕，而非下拉選單
     const actionTd = document.createElement("td");
-    const actionDiv = document.createElement("div");
-    actionDiv.className = "action-button";
-    const btn = document.createElement("button");
-    btn.textContent = "處理";
-    btn.type = "button";
-    actionDiv.appendChild(btn);
-    // 建立選單
-    const menu = document.createElement("div");
-    menu.className = "menu";
-    // 顯示完成
-    const completeBtn = document.createElement("button");
-    completeBtn.textContent = "顯示完成";
-    completeBtn.type = "button";
-    completeBtn.addEventListener("click", () => {
-      markComplete(task.id);
-      menu.style.display = "none";
+    actionTd.className = "actions";
+
+    // 標記完成或未完成按鈕
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className = "action-toggle";
+    toggleBtn.textContent = task.completed ? "未完成" : "完成";
+    toggleBtn.addEventListener("click", () => {
+      if (task.completed) {
+        markIncomplete(task.id);
+      } else {
+        markComplete(task.id);
+      }
     });
-    menu.appendChild(completeBtn);
-    // 修改
+    actionTd.appendChild(toggleBtn);
+
+    // 編輯按鈕
     const editBtn = document.createElement("button");
-    editBtn.textContent = "修改";
     editBtn.type = "button";
+    editBtn.className = "action-edit";
+    editBtn.textContent = "修改";
     editBtn.addEventListener("click", () => {
       openEditModal(task.id);
-      menu.style.display = "none";
     });
-    menu.appendChild(editBtn);
-    // 刪除
+    actionTd.appendChild(editBtn);
+
+    // 刪除按鈕
     const deleteBtn = document.createElement("button");
-    deleteBtn.textContent = "刪除";
     deleteBtn.type = "button";
+    deleteBtn.className = "action-delete";
+    deleteBtn.textContent = "刪除";
     deleteBtn.addEventListener("click", () => {
       if (confirm("確定要刪除此項目嗎？")) {
         deleteTask(task.id);
       }
-      menu.style.display = "none";
     });
-    menu.appendChild(deleteBtn);
-    actionDiv.appendChild(menu);
-    actionTd.appendChild(actionDiv);
+    actionTd.appendChild(deleteBtn);
+
     tr.appendChild(actionTd);
-    // 切換選單顯示
-    btn.addEventListener("click", (e) => {
-      // 先關閉其他開啟的選單
-      document.querySelectorAll(".action-button .menu").forEach((m) => {
-        if (m !== menu) {
-          m.style.display = "none";
-        }
-      });
-      menu.style.display = menu.style.display === "block" ? "none" : "block";
-      e.stopPropagation();
-    });
     return tr;
   }
 
@@ -371,6 +358,86 @@
       saveTasks(tasks);
       renderTasks();
     }
+  }
+
+  /**
+   * 標記任務為未完成
+   * 有時已標記完成的任務後續出現問題，需要恢復為未完成
+   * @param {number} id 任務 id
+   */
+  function markIncomplete(id) {
+    const tasks = getTasks();
+    const idx = tasks.findIndex((t) => t.id === id);
+    if (idx !== -1) {
+      tasks[idx].completed = false;
+      saveTasks(tasks);
+      renderTasks();
+    }
+  }
+
+  /**
+   * 匯出任務資料為 Excel 檔案
+   * 透過產生 HTML table 並以 data URI 方式下載
+   */
+  function exportToExcel() {
+    const tasks = getTasks();
+    if (!tasks || tasks.length === 0) {
+      alert("沒有任務可輸出");
+      return;
+    }
+    // 標題列
+    const headers = [
+      "項目名稱",
+      "內容敘述",
+      "客戶缺少提供內容",
+      "客戶提供日期",
+      "預計開發天數",
+      "預計完成日期",
+      "客戶提供倒數天數",
+      "完成與否"
+    ];
+    // 產生資料列
+    const rows = tasks.map((task) => {
+      const completionDate = computeCompletionDate(task.dueDate, task.devDays);
+      const completionDateStr = formatDate(completionDate);
+      const daysDiff = daysUntil(task.dueDate);
+      const countdown = daysDiff < 0 ? 0 : daysDiff;
+      const status = task.completed ? "完成" : "未完成";
+      return [
+        task.name,
+        task.desc,
+        task.missing || "",
+        task.dueDate,
+        String(task.devDays),
+        completionDateStr,
+        String(countdown),
+        status
+      ];
+    });
+    // 建立 HTML 表格字串
+    let tableHTML = '<table><thead><tr>';
+    headers.forEach((h) => {
+      tableHTML += `<th>${h}</th>`;
+    });
+    tableHTML += '</tr></thead><tbody>';
+    rows.forEach((row) => {
+      tableHTML += '<tr>';
+      row.forEach((cell) => {
+        tableHTML += `<td>${cell}</td>`;
+      });
+      tableHTML += '</tr>';
+    });
+    tableHTML += '</tbody></table>';
+    // 建立下載連結
+    const dataType = 'application/vnd.ms-excel';
+    const dataUri = 'data:' + dataType + ';charset=utf-8,' + encodeURIComponent(tableHTML);
+    const fileName = 'tasks_' + new Date().toISOString().slice(0, 10) + '.xls';
+    const link = document.createElement('a');
+    link.href = dataUri;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   /**
@@ -485,12 +552,13 @@
         closeEditModal();
       });
     }
-    // 點擊其他地方時關閉選單
-    document.addEventListener("click", (e) => {
-      document.querySelectorAll(".action-button .menu").forEach((m) => {
-        m.style.display = "none";
+    // 匯出 Excel 按鈕事件
+    const exportBtn = document.getElementById("exportExcel");
+    if (exportBtn) {
+      exportBtn.addEventListener("click", () => {
+        exportToExcel();
       });
-    });
+    }
   }
 
   // 根據頁面不同做初始化
